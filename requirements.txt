@@ -9,3 +9,5 @@ google-genai
 PyMuPDF
 python-dotenv
 python-multipart
+python-jose[cryptography]
+bcrypt
