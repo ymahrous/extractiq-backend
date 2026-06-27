@@ -26,12 +26,12 @@ def on_startup():
 
 app.include_router(auth_router)
 
-# --- PROTECTED ROUTES ---
+# --- MAIN ROUTES ---
 @app.post("/api/v1/upload/")
 def test_upload(
     file: UploadFile = File(...), 
     session: Session = Depends(database.get_session),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     file_bytes = file.file.read()
     filename = file.filename
@@ -40,7 +40,8 @@ def test_upload(
     db_doc = models.Document(
         filename=filename,
         s3_url=public_url,
-        status="PENDING"
+        status="PENDING",
+        owner_id=current_user.id
     )
     session.add(db_doc)
     session.commit()
@@ -49,7 +50,7 @@ def test_upload(
     process_document_task.delay(db_doc.id)
     
     return {
-        "message": "Document received and sent to ML queue!",
+        "message": "Document received!",
         "document_id": db_doc.id,
         "status": db_doc.status
     }
@@ -57,10 +58,13 @@ def test_upload(
 @app.get("/api/v1/documents/")
 def get_documents(
     session: Session = Depends(database.get_session),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
+    # Only select documents where owner_id matches the logged-in user
     docs = session.exec(
-        select(models.Document).order_by(models.Document.created_at.desc())
+        select(models.Document)
+        .where(models.Document.owner_id == current_user.id)
+        .order_by(models.Document.created_at.desc())
     ).all()
     return docs
 
