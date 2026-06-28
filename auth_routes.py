@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 import database, models, auth
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
@@ -12,6 +13,10 @@ class LoginRequest(BaseModel):
 class SignupRequest(BaseModel):
     username: str
     password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -45,3 +50,26 @@ def login(request: LoginRequest, session: Session = Depends(database.get_session
     
     token = auth.create_access_token(data={"sub": user.username})
     return TokenResponse(access_token=token)
+
+@router.post("/change-password")
+def change_password(
+    request: ChangePasswordRequest,
+    user: models.User = Depends(get_current_user),
+    session: Session = Depends(database.get_session),
+):
+    if not auth.verify_password(request.current_password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
+    user.hashed_password = auth.get_password_hash(request.new_password)
+    session.add(user)
+    session.commit()
+    return {"message": "Password updated successfully."}
+
+
+@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    user: models.User = Depends(get_current_user),
+    session: Session = Depends(database.get_session),
+):
+    session.delete(user)
+    session.commit()
+    return None
