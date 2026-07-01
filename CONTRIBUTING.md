@@ -1,12 +1,25 @@
-# Contributing to edocAI
+# Contributing to edocAI Backend
 
-Thank you for your interest in contributing. This document outlines the process for reporting bugs, suggesting improvements, and submitting code changes.
+Thank you for your interest in contributing. This guide reflects the current FastAPI backend, Celery worker, and test workflow in this repository.
+
+> Use this guide when making code, documentation, or configuration changes to the backend service.
+
+## At a Glance
+
+| Item | Details |
+|---|---|
+| Repository | `edocAI-backend` |
+| Primary stack | FastAPI, Celery, SQLModel, pytest |
+| Local API | `uvicorn main:app --reload` |
+| Local worker | `celery -A celery_app.celery_app worker --loglevel=info` |
+| Test command | `pytest` |
 
 ---
 
 ## Table of Contents
 
-- [Contributing to edocAI](#contributing-to-edocai)
+- [Contributing to edocAI Backend](#contributing-to-edocai-backend)
+  - [At a Glance](#at-a-glance)
   - [Table of Contents](#table-of-contents)
   - [Code of Conduct](#code-of-conduct)
   - [Getting Started](#getting-started)
@@ -22,8 +35,8 @@ Thank you for your interest in contributing. This document outlines the process 
   - [Screenshots (if applicable)](#screenshots-if-applicable)
   - [Code Style](#code-style)
   - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Questions](#questions)
+  - [Questions and Suggesting Features](#questions-and-suggesting-features)
+  - [Local Commands](#local-commands)
 
 ---
 
@@ -35,37 +48,52 @@ This project follows a simple rule: be respectful. Constructive criticism is wel
 
 ## Getting Started
 
-1. Fork the repository
+1. Fork the repository.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/your-username/edocai.git
-   cd edocai
+   git clone https://github.com/your-username/edocai-backend.git
+   cd edocai-backend
    ```
-3. Install dependencies:
+3. Create and activate a virtual environment:
    ```bash
-   npm install
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
-4. Copy the environment file and fill in the required values:
+4. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+5. Copy the environment template and fill in the values:
    ```bash
    cp .env.example .env
    ```
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
 
-The app will be running at `http://localhost:3000`. You will also need a running instance of the [backend API](https://github.com/ymahrous/edocai-backend).
+Before you run the app, make sure you have these services available:
+
+| Service | Purpose |
+|---|---|
+| Postgres | Stores users, documents, and extraction results |
+| Redis | Celery broker for background jobs |
+| Supabase Storage | Stores uploaded documents |
+| Gemini API key | Powers document extraction |
+| Stripe keys | Required only if you are working on billing flows |
 
 ---
 
 ## How to Contribute
 
 1. Check the [open issues](https://github.com/ymahrous/edocai/issues) before starting work to avoid duplicating effort.
-2. If no issue exists for what you want to work on, open one first and wait for confirmation before starting.
+2. If no issue exists for what you want to change, open one first and wait for confirmation before starting.
 3. Fork the repo and create your branch from `main`.
-4. Make your changes, following the code style guidelines below.
-5. Test your changes locally.
+4. Make your changes following the code style guidelines below.
+5. Run the relevant checks locally, usually `pytest` and the app startup commands relevant to your change.
 6. Open a pull request against `main`.
+
+Recommended flow:
+
+- Keep the change focused on one problem.
+- Prefer small, reviewable commits.
+- Include test coverage whenever the behavior changes.
 
 ---
 
@@ -75,12 +103,12 @@ Use the following prefixes depending on the type of change:
 
 | Type | Prefix | Example |
 |---|---|---|
-| New feature | `feat/` | `feat/mobile-navbar` |
-| Bug fix | `fix/` | `fix/logout-cta-sync` |
-| Refactor | `refactor/` | `refactor/auth-form-component` |
-| Documentation | `docs/` | `docs/update-readme` |
-| Performance | `perf/` | `perf/polling-backoff` |
-| Chore / config | `chore/` | `chore/add-prettier` |
+| New feature | `feat/` | `feat/document-upload-validation` |
+| Bug fix | `fix/` | `fix/celery-task-retry` |
+| Refactor | `refactor/` | `refactor/auth-dependency` |
+| Documentation | `docs/` | `docs/update-env-setup` |
+| Performance | `perf/` | `perf/storage-upload-path` |
+| Chore / config | `chore/` | `chore/update-requirements` |
 
 ---
 
@@ -98,16 +126,22 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 **Examples:**
 ```
-feat(auth): add confirm password field to signup
-fix(navbar): sync logout state on landing page
-refactor(api): replace manual token fetch with authFetch in uploadDocument
-chore: rename package name from extractiq-frontend to edocai
+feat(auth): add password reset endpoint
+fix(tasks): retry failed document extraction jobs
+refactor(api): simplify upload validation flow
+chore: update dependencies for Python 3.11
 ```
 
 **Rules:**
 - Use the imperative mood in the description ("add" not "added")
 - Keep the first line under 72 characters
 - Reference related issues in the footer: `Closes #12`
+
+Suggested pattern:
+
+```text
+<type>(<scope>): <short description>
+```
 
 ---
 
@@ -116,9 +150,16 @@ chore: rename package name from extractiq-frontend to edocai
 1. **One concern per PR** — keep PRs focused. A PR that fixes a bug and adds a feature will be asked to split.
 2. **Fill out the PR template** — describe what changed and why, not just what.
 3. **Link the related issue** — every PR should close or reference an issue.
-4. **All checks must pass** — lint, type-check, and build must be green before review.
-5. **Request a review** — assign `ymahrous` as the reviewer.
-6. **No force-pushing** to a PR branch after review has started.
+4. **Run the relevant checks** — at minimum, `pytest` should pass for code changes.
+5. **Request a review** — assign a maintainer when the PR is ready.
+6. **No force-pushing** after review has started unless a maintainer asks for it.
+
+Helpful review checklist:
+
+- The change solves one clear problem.
+- The diff is easy to follow.
+- Tests were added or updated where behavior changed.
+- Any environment or deployment notes are included in the PR description.
 
 ### PR Description Template
 
@@ -142,28 +183,29 @@ Closes #<issue number>
 
 ## Code Style
 
-This project uses TypeScript with strict mode enabled. Follow these rules:
+This project is a Python backend. Follow these rules:
 
-**TypeScript**
-- No `any` types — use `unknown` and narrow explicitly
-- All function parameters and return types should be typed
-- Prefer `interface` over `type` for object shapes
+**Python**
+- Use type hints for new functions and public APIs.
+- Prefer clear, explicit code over clever abstractions.
+- Keep changes small and focused on the owning module.
 
-**React**
-- All components are functional — no class components
-- Keep components focused — if a component exceeds ~150 lines, consider splitting it
-- Extract repeated JSX into its own component rather than duplicating
+**FastAPI and SQLModel**
+- Keep request validation close to the route or schema that owns it.
+- Reuse shared dependencies from `dependencies.py` and shared DB helpers from `database.py`.
+- Prefer typed models and schemas over ad hoc dictionaries when a response shape is stable.
+
+**Testing**
+- Add or update `pytest` coverage for behavior changes.
+- Keep fixtures in `conftest.py` reusable and narrow.
+- When touching async or background-processing code, verify the worker path as well as the API path.
 
 **Naming**
-- Components: `PascalCase`
-- Functions and variables: `camelCase`
-- Constants: `SCREAMING_SNAKE_CASE`
-- Files: `kebab-case` for utilities, `PascalCase` for components
+- Modules and helper files: `snake_case`
+- Classes: `PascalCase`
+- Functions, variables, and route handlers: `snake_case`
 
-**Tailwind**
-- Use the `cn()` utility from `lib/utils.ts` when conditionally combining classes
-- Avoid arbitrary values (`w-[327px]`) where a standard scale value works
-- Keep dark mode variants co-located: `isDark ? "..." : "..."`
+When in doubt, follow the nearest existing pattern in the repository rather than introducing a new style.
 
 ---
 
@@ -173,7 +215,7 @@ Open a [GitHub Issue](https://github.com/ymahrous/edocai/issues/new) with the fo
 
 - **Description** — what happened vs. what you expected
 - **Steps to reproduce** — numbered, minimal steps
-- **Environment** — OS, browser, Node version
+- **Environment** — OS, Python version, relevant service versions
 - **Screenshots or error logs** if applicable
 
 Please search existing issues before opening a new one.
@@ -189,4 +231,30 @@ Open a [GitHub Issue](https://github.com/ymahrous/edocai/issues/new) with:
 - **Alternatives considered** — other approaches you thought of
 - **Additional context** — mockups, examples, or prior art
 
-Feature requests are not guaranteed to be implemented but all suggestions are read and considered.
+Feature requests are not guaranteed to be implemented, but all suggestions are read and considered.
+
+## Local Commands
+
+These are the main commands contributors use in this repository:
+
+```bash
+make install
+make run
+make worker
+make test
+```
+
+If you prefer running the tools directly:
+
+```bash
+uvicorn main:app --reload
+celery -A celery_app.celery_app worker --loglevel=info
+pytest
+```
+
+| Command | Purpose |
+|---|---|
+| `make install` | Install Python dependencies from `requirements.txt` |
+| `make run` | Start the FastAPI development server |
+| `make worker` | Start the Celery worker |
+| `make test` | Run the test suite |
