@@ -70,9 +70,13 @@ def delete_account(
     user: models.User = Depends(get_current_user),
     session: Session = Depends(database.get_session),
 ):
+    extractions = session.exec(select(models.Extraction).where(models.Extraction.user_id == user.id)).all()
     documents = session.exec(select(models.Document).where(models.Document.owner_id == user.id)).all()
     usage_records = session.exec(select(models.UsageRecord).where(models.UsageRecord.user_id == user.id)).all()
     subscriptions = session.exec(select(models.Subscription).where(models.Subscription.user_id == user.id)).all()
+
+    for extraction in extractions:
+        session.delete(extraction)
 
     for doc in documents:
         session.delete(doc)
