@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 import database, models, auth
+import storage_client
 from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -70,15 +71,19 @@ def delete_account(
     user: models.User = Depends(get_current_user),
     session: Session = Depends(database.get_session),
 ):
-    extractions = session.exec(select(models.Extraction).where(models.Extraction.user_id == user.id)).all()
     documents = session.exec(select(models.Document).where(models.Document.owner_id == user.id)).all()
     usage_records = session.exec(select(models.UsageRecord).where(models.UsageRecord.user_id == user.id)).all()
     subscriptions = session.exec(select(models.Subscription).where(models.Subscription.user_id == user.id)).all()
 
-    for extraction in extractions:
-        session.delete(extraction)
-
     for doc in documents:
+        extractions = session.exec(
+            select(models.Extraction).where(models.Extraction.document_id == doc.id)
+        ).all()
+
+        for extraction in extractions:
+            session.delete(extraction)
+
+        storage_client.delete_from_storage(doc.filename)
         session.delete(doc)
 
     for record in usage_records:
@@ -89,4 +94,4 @@ def delete_account(
 
     session.delete(user)
     session.commit()
-    return {"message": "Account deleted successfully."}
+    return None
