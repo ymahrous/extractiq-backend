@@ -114,3 +114,27 @@ def get_usage(current_user: models.User = Depends(get_current_user)):
             "documents_processed": docs_processed,
             "limit": 10 if current_user.plan == "free" else -1 # -1 means unlimited
         }
+
+@router.get("/subscription")
+def get_subscription(current_user: models.User = Depends(get_current_user)):
+    with next(database.get_session()) as session:
+        # Find the user's active subscription
+        sub = session.exec(
+            select(models.Subscription).where(models.Subscription.user_id == current_user.id)
+        ).first()
+
+        if not sub or sub.status != "active":
+            return {
+                "plan": current_user.plan,
+                "status": "inactive",
+                "current_period_end": None,
+                "last_renewal_date": None
+            }
+
+        return {
+            "plan": current_user.plan,
+            "status": sub.status,
+            # Return ISO format strings, frontend will format them nicely
+            "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
+            "last_renewal_date": sub.updated_at.isoformat() if sub.updated_at else None
+        }
